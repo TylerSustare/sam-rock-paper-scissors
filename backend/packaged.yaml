@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'rock-paper-backend
+
+  SAM Template for rock-paper-backend that has the DynamoDB table and Lambda functions
+  needed
+
+  '
+Parameters:
+  TableName:
+    Type: String
+    Default: rpslp_connections
+    Description: (Required) The name of the new DynamoDB to store connection identifiers
+      for each connected clients. Minimum 3 characters
+    MinLength: 3
+    MaxLength: 50
+    AllowedPattern: ^[A-Za-z_]+$
+    ConstraintDescription: Required. Can be characters and underscore only. No numbers
+      or special characters allowed.
+Resources:
+  RPSLPWebSocket:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: RPSLPWebSocket
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.message
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target:
+        Fn::Join:
+        - /
+        - - integrations
+          - Ref: ConnectInteg
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RPSLPFunction.Arn}/invocations
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target:
+        Fn::Join:
+        - /
+        - - integrations
+          - Ref: DisconnectInteg
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RPSLPFunction.Arn}/invocations
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+      RouteKey: $default
+      AuthorizationType: NONE
+      OperationName: DefaultRoute
+      Target:
+        Fn::Join:
+        - /
+        - - integrations
+          - Ref: DefaultInteg
+  DefaultInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+      Description: Default Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RPSLPFunction.Arn}/invocations
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+    - ConnectRoute
+    - DefaultRoute
+    - DisconnectRoute
+    Properties:
+      ApiId:
+        Ref: RPSLPWebSocket
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Prod
+      Description: Prod Stage
+      DeploymentId:
+        Ref: Deployment
+      ApiId:
+        Ref: RPSLPWebSocket
+  ConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: PK
+        AttributeType: S
+      - AttributeName: SK
+        AttributeType: S
+      KeySchema:
+      - AttributeName: PK
+        KeyType: HASH
+      - AttributeName: SK
+        KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      TableName:
+        Ref: TableName
+      TimeToLiveSpecification:
+        AttributeName: Expires
+        Enabled: true
+  RPSLPFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-cf3amk1j4fga/da86ce874456a3dd4f638fae7a32a323
+      Handler: handler
+      MemorySize: 128
+      Runtime: go1.x
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: TableName
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: TableName
+      - Statement:
+        - Effect: Allow
+          Action:
+          - execute-api:ManageConnections
+          Resource:
+          - Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RPSLPWebSocket}/*
+  RPSLPPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - RPSLPWebSocket
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: RPSLPFunction
+      Principal: apigateway.amazonaws.com
+Outputs:
+  ConnectionsTableArn:
+    Description: Connections table ARN
+    Value:
+      Fn::GetAtt:
+      - ConnectionsTable
+      - Arn
+  RPSLPFunctionArn:
+    Description: RPSLP function ARN
+    Value:
+      Fn::GetAtt:
+      - RPSLPFunction
+      - Arn
+  WebSocketURI:
+    Description: The WSS Protocol URI to connect to
+    Value:
+      Fn::Join:
+      - ''
+      - - wss://
+        - Ref: RPSLPWebSocket
+        - .execute-api.
+        - Ref: AWS::Region
+        - .amazonaws.com/
+        - Ref: Stage
