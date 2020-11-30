@@ -1,4 +1,4 @@
-// Pacage store includes all the methods for persisting rock paper scissors games
+// Package store includes all the methods for persisting rock paper scissors games
 package store
 
 import (
@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/jbarratt/rpsls/backend/code/game"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/game"
 )
 
 // GameItem is for game status items
@@ -23,6 +23,7 @@ type GameItem struct {
 	Expires int64
 }
 
+// PlayerItem represents a player in the game, and is for the "players" map on the game item
 type PlayerItem struct {
 	ID      string
 	Address string

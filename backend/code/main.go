@@ -12,29 +12,29 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/jbarratt/rpsls/backend/code/notify"
-	"github.com/jbarratt/rpsls/backend/code/service"
-	"github.com/jbarratt/rpsls/backend/code/store"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/notify"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/service"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/store"
 )
 
 func GetSession() *session.Session {
-	sess, err := session.NewSession(&aws.Config{
+	session, err := session.NewSession(&aws.Config{
 		Region: aws.String(os.Getenv("AWS_REGION")),
 	})
 	if err != nil {
 		log.Fatalln("unable to create session", err.Error())
 	}
-	return sess
+	return session
 }
 
 func Handler(e events.APIGatewayWebsocketProxyRequest) (interface{}, error) {
 
 	fmt.Printf("Entered handler\n")
 
-	sess := GetSession()
+	session := GetSession()
 
-	st := store.New(dynamodb.New(sess), os.Getenv("TABLE_NAME"))
-	no := notify.NewAPIGWNotifier(e.RequestContext.DomainName, e.RequestContext.Stage, sess)
+	st := store.New(dynamodb.New(session), os.Getenv("TABLE_NAME"))
+	no := notify.NewAPIGWNotifier(e.RequestContext.DomainName, e.RequestContext.Stage, session)
 	svc := service.NewLambdaSvc(st, no)
 
 	switch e.RequestContext.RouteKey {

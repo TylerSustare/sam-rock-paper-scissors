@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/jbarratt/rpsls/backend/code/game"
-	"github.com/jbarratt/rpsls/backend/code/notify"
-	"github.com/jbarratt/rpsls/backend/code/store"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/game"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/notify"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/store"
 )
 
 type LambdaSvc struct {

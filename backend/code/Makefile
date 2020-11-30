@@ -6,7 +6,7 @@ all: deps build
 build:
 	go build -o $(BINARY_NAME) cmd/smarter_sensibo/main.go
 test:
-	go test -v ./...
+	TABLE_NAME=test AWS_REGION=us-west-2 go test -v ./... 
 clean:
 	go clean
 deps:

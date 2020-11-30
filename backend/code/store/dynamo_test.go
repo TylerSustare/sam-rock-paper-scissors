@@ -1,24 +1,71 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/jbarratt/rpsls/backend/code/game"
+	"github.com/tylersustare/sam-rock-paper-scissors/backend/code/game"
 )
 
 func TestGameStore(t *testing.T) {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION")),
+	// use dynamodb local to run the unit tests
+	session, err := session.NewSession(&aws.Config{
+		Region:   aws.String(os.Getenv("AWS_REGION")),
+		Endpoint: aws.String("http://localhost:8000"),
 	})
 	if err != nil {
 		t.Fatalf("unable to create session: %s", err)
 	}
 
-	s := New(dynamodb.New(sess), os.Getenv("TABLE_NAME"))
+	// create test table if it doesn't exist
+	testDynamo := dynamodb.New(session)
+	_, err = testDynamo.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String(os.Getenv("TABLE_NAME"))})
+	if err != nil {
+		tableName := os.Getenv("TABLE_NAME")
+
+		input := &dynamodb.CreateTableInput{
+			AttributeDefinitions: []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("PK"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("SK"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			KeySchema: []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("PK"),
+					KeyType:       aws.String("HASH"),
+				},
+				{
+					AttributeName: aws.String("SK"),
+					KeyType:       aws.String("RANGE"),
+				},
+			},
+			ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+				ReadCapacityUnits:  aws.Int64(1),
+				WriteCapacityUnits: aws.Int64(1),
+			},
+			TableName: aws.String(tableName),
+		}
+
+		_, err := testDynamo.CreateTable(input)
+		if err != nil {
+			fmt.Println("Got error calling CreateTable:")
+			fmt.Println(err.Error())
+			t.Fatalf("unable to store game: %s", err)
+		}
+
+		fmt.Println("Created the table", tableName)
+	}
+
+	s := New(dynamodb.New(session), os.Getenv("TABLE_NAME"))
 
 	g := game.NewGame()
 	// Simulate first player joining

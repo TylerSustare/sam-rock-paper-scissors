@@ -1,2 +1,5 @@
-# sam-rock-paper-scissors
-Serverless Rock, Paper, Scissors game using API gateway websockets
+# Serverless Rock, Paper, Scissors, Lizard, Spock game
+
+## Built using API gateway websockets
+
+# [Here It Is Live!](https://rpsls.sustare.com)
